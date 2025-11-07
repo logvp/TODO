@@ -1,3 +1,22 @@
+#![deny(
+    unsafe_code,
+    clippy::correctness,
+    clippy::suspicious,
+    unused_must_use,
+    unfulfilled_lint_expectations
+)]
+#![warn(clippy::complexity, clippy::perf, clippy::style)]
+#![warn(clippy::pedantic)]
+#![allow(
+    clippy::missing_panics_doc,
+    clippy::wildcard_imports,
+    clippy::semicolon_if_nothing_returned,
+    clippy::uninlined_format_args,
+    clippy::missing_errors_doc,
+    clippy::match_same_arms,
+    clippy::must_use_candidate
+)]
+
 use std::env;
 use std::fs::{self, File};
 use std::io::Write;
@@ -24,8 +43,8 @@ fn main() -> anyhow::Result<()> {
     let storage = project_dir.data_local_dir();
     let datafile = storage.join(FILENAME);
     if VERBOSE {
-        println!("{:?}", storage);
-        println!("{:?}", datafile);
+        println!("{}", storage.display());
+        println!("{}", datafile.display());
     }
     fs::create_dir_all(storage)?;
     let text = fs::read_to_string(&datafile).ok();
