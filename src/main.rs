@@ -22,7 +22,7 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::path::PathBuf;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use chrono::{DateTime, Local};
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
@@ -35,6 +35,7 @@ struct TodoItem {
     timestamp: DateTime<Local>,
     path: PathBuf,
     message: String,
+    completed: Option<DateTime<Local>>,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -52,7 +53,7 @@ fn main() -> anyhow::Result<()> {
         if VERBOSE {
             println!("{}", text);
         }
-        serde_json::from_str(&text)?
+        serde_json::from_str(&text).context("While reading todo list from disk")?
     } else {
         Vec::new()
     };
@@ -68,8 +69,9 @@ fn main() -> anyhow::Result<()> {
             timestamp: Local::now(),
             path: env::current_dir()?,
             message,
+            completed: None,
         });
-        let mut f = File::options().append(true).create(true).open(&datafile)?;
+        let mut f = File::options().create(true).open(&datafile)?;
         writeln!(&mut f, "{}", serde_json::to_string(&data)?)?;
     }
     Ok(())
