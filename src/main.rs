@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 
 const VERBOSE: bool = true;
 const FILENAME: &str = "todofile.json";
+const TIME_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TodoItem {
@@ -59,8 +60,13 @@ fn main() -> anyhow::Result<()> {
     };
     let message = env::args().skip(1).collect::<Vec<String>>().join(" ");
     if message.is_empty() {
-        for item in data {
-            println!("{:?}", item);
+        for (i, item) in data.iter().enumerate() {
+            println!(
+                "{} - {} ({})",
+                i + 1,
+                item.message,
+                item.timestamp.format(TIME_FORMAT)
+            );
         }
     } else {
         println!("{}", message);
