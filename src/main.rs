@@ -40,6 +40,7 @@ struct TodoItem {
 }
 
 #[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
 struct Cli {
     #[arg(short, long)]
     verbose: bool,
@@ -84,17 +85,19 @@ fn main() -> anyhow::Result<()> {
     if cli.paths.is_empty() {
         data = all_data;
     } else {
-        for item in all_data {
+        let mut paths = Vec::new();
+        for p in &cli.paths {
+            paths.push(fs::canonicalize(p)?);
+        }
+        'items: for item in all_data {
             let item_path = fs::canonicalize(&item.path)?;
-            for p in &cli.paths {
+            for p in &paths {
                 if item_path.starts_with(p) {
                     data.push(item);
-                    break;
-                } else {
-                    rest.push(item);
-                    break;
+                    continue 'items;
                 }
             }
+            rest.push(item);
         }
     }
 
