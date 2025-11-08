@@ -77,6 +77,9 @@ fn main() -> anyhow::Result<()> {
         }
         serde_json::from_str(&text).context("While reading todo list from disk")?
     } else {
+        if cli.verbose {
+            println!("No todo list file found");
+        }
         Vec::new()
     };
 
