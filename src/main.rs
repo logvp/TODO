@@ -17,11 +17,11 @@
     clippy::must_use_candidate
 )]
 
-use std::{env, path};
 use std::fs::{self, File};
 use std::io::Write;
 use std::iter::Peekable;
 use std::path::PathBuf;
+use std::{env, path};
 
 use anyhow::{Context, Result, anyhow, bail, ensure};
 use chrono::{DateTime, Local};
@@ -53,12 +53,15 @@ enum Command {
 }
 
 fn parse_message_command(args: &mut Peekable<env::Args>) -> Command {
-    Command::AddItem { message: args.into_iter().collect::<Vec<_>>().join(" ") }
+    Command::AddItem {
+        message: args.into_iter().collect::<Vec<_>>().join(" "),
+    }
 }
 
 fn parse_index(args: &mut Peekable<env::Args>) -> Result<usize> {
     if let Some(arg) = args.next() {
-        arg.parse().map_err(|_| anyhow!("Could not parse \"{}\" as integer INDEX", arg))
+        arg.parse()
+            .map_err(|_| anyhow!("Could not parse \"{}\" as integer INDEX", arg))
     } else {
         bail!("Expected positional argument INDEX")
     }
@@ -66,13 +69,21 @@ fn parse_index(args: &mut Peekable<env::Args>) -> Result<usize> {
 
 fn parse_delete_command(args: &mut Peekable<env::Args>) -> Result<Command> {
     let index = parse_index(args)?;
-    ensure!(args.peek().is_none(), "Unknown arguments: {:?}", args.collect::<Vec<_>>());
+    ensure!(
+        args.peek().is_none(),
+        "Unknown arguments: {:?}",
+        args.collect::<Vec<_>>()
+    );
     Ok(Command::DeleteItem { index })
 }
 
 fn parse_complete_command(args: &mut Peekable<env::Args>) -> Result<Command> {
     let index = parse_index(args)?;
-    ensure!(args.peek().is_none(), "Unknown arguments: {:?}", args.collect::<Vec<_>>());
+    ensure!(
+        args.peek().is_none(),
+        "Unknown arguments: {:?}",
+        args.collect::<Vec<_>>()
+    );
     Ok(Command::CompleteItem { index })
 }
 
@@ -117,7 +128,11 @@ fn parse_args() -> Result<Cli> {
         }
     };
 
-    Ok(Cli { verbose, paths, command })
+    Ok(Cli {
+        verbose,
+        paths,
+        command,
+    })
 }
 
 fn main() -> anyhow::Result<()> {
@@ -197,7 +212,11 @@ fn main() -> anyhow::Result<()> {
     // Finally, combine the selected and unselected items and save to disk
     data.append(&mut rest);
     data.sort_by_key(|item| item.timestamp);
-    let mut f = File::options().create(true).write(true).truncate(true).open(&datafile)?;
+    let mut f = File::options()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&datafile)?;
     writeln!(&mut f, "{}", serde_json::to_string(&data)?)?;
     Ok(())
 }
