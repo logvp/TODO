@@ -17,7 +17,7 @@
     clippy::must_use_candidate
 )]
 
-use std::env;
+use std::{env, path};
 use std::fs::{self, File};
 use std::io::Write;
 use std::iter::Peekable;
@@ -41,7 +41,7 @@ struct TodoItem {
 
 struct Cli {
     verbose: bool,
-    path_filter: Option<PathBuf>,
+    paths: Vec<PathBuf>,
     command: Command,
 }
 
@@ -85,12 +85,21 @@ fn parse_args() -> Result<Cli> {
     args.next().expect("Expected executable as first argument");
 
     let mut verbose = false;
+    let mut paths = Vec::new();
 
     let command = loop {
         match args.peek().map(String::as_str) {
             Some("--verbose" | "-v") => {
                 args.next();
                 verbose = true;
+            }
+            Some("--path" | "-p") => {
+                args.next();
+                if let Some(path) = args.next() {
+                    paths.push(fs::canonicalize(path)?);
+                } else {
+                    bail!("Expected argument following --filter");
+                }
             }
             Some("--delete" | "-d") => {
                 args.next();
@@ -100,12 +109,15 @@ fn parse_args() -> Result<Cli> {
                 args.next();
                 break parse_complete_command(&mut args)?;
             }
+            Some(flag) if flag.starts_with("--") => {
+                bail!("Unknown argument \"{}\"", flag)
+            }
             Some(_) => break parse_message_command(&mut args),
             None => break parse_show_command(),
         }
     };
 
-    Ok(Cli { verbose, path_filter: None, command })
+    Ok(Cli { verbose, paths, command })
 }
 
 fn main() -> anyhow::Result<()> {
@@ -121,7 +133,7 @@ fn main() -> anyhow::Result<()> {
     }
     fs::create_dir_all(storage)?;
     let text = fs::read_to_string(&datafile).ok();
-    let mut data: Vec<TodoItem> = if let Some(text) = text {
+    let all_data: Vec<TodoItem> = if let Some(text) = text {
         if cli.verbose {
             println!("{}", text);
         }
@@ -130,6 +142,25 @@ fn main() -> anyhow::Result<()> {
         Vec::new()
     };
 
+    let mut data = Vec::new();
+    let mut rest = Vec::new();
+    if cli.paths.is_empty() {
+        data = all_data;
+    } else {
+        for item in all_data {
+            let item_path = fs::canonicalize(&item.path)?;
+            for p in &cli.paths {
+                if item_path.starts_with(p) {
+                    data.push(item);
+                    break;
+                } else {
+                    rest.push(item);
+                    break;
+                }
+            }
+        }
+    }
+
     match cli.command {
         Command::AddItem { message } => {
             if cli.verbose {
@@ -137,7 +168,7 @@ fn main() -> anyhow::Result<()> {
             }
             data.push(TodoItem {
                 timestamp: Local::now(),
-                path: env::current_dir()?,
+                path: path::absolute(env::current_dir()?)?,
                 message,
                 completed: None,
             });
@@ -151,9 +182,9 @@ fn main() -> anyhow::Result<()> {
         Command::ShowItems => {
             for (i, item) in data.iter().enumerate() {
                 println!(
-                    "{}{} - {} ({})",
+                    "{} [{}] {} ({})",
                     i + 1,
-                    if item.completed.is_some() { " ✓" } else { "" },
+                    if item.completed.is_some() { "x" } else { " " },
                     item.message,
                     item.timestamp.format(TIME_FORMAT)
                 );
@@ -163,7 +194,9 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    // Finally, save the todo file
+    // Finally, combine the selected and unselected items and save to disk
+    data.append(&mut rest);
+    data.sort_by_key(|item| item.timestamp);
     let mut f = File::options().create(true).write(true).truncate(true).open(&datafile)?;
     writeln!(&mut f, "{}", serde_json::to_string(&data)?)?;
     Ok(())
